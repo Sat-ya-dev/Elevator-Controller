@@ -1,0 +1,130 @@
+//Elevator Controller Verilog Code
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 28.11.2022 17:52:44
+// Design Name: 
+// Module Name: elev_control
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module elevator(inp,clk,rst,segdisp);
+input clk,rst;
+input [3:0]inp;
+output reg [6:0] segdisp;
+reg [2:0] gonext;
+reg [1:0] count; 
+
+reg [1:0] state,nextstate;
+
+reg clk_l = 1'b1;         //new clock
+reg [26:0] count_c;
+
+parameter f0 = 4'b1000;
+parameter f1 = 4'b0100;
+parameter f2 = 4'b0010;
+parameter f3 = 4'b0001;
+parameter hold = 4'b0000;
+
+
+//states
+parameter s0 = 2'b00;
+parameter s1 = 2'b01;
+parameter s2 = 2'b10;
+parameter s3 = 2'b11; 
+
+//floor values
+always @(inp)
+begin
+	case(inp)
+	f0: gonext = 3'b000;
+	f1: gonext = 3'b001;
+	f2: gonext = 3'b010;
+	f3: gonext = 3'b011;
+	hold: gonext = 3'b100;
+	endcase
+end
+
+
+//nextstate logic
+always @(*)
+begin
+case(state)
+s0 : begin
+        if(gonext==3'b100) nextstate <=s0;
+		else if(gonext>=3'b001) nextstate<=s1;
+		else nextstate<=s0;
+		end
+s1 : begin
+        if(gonext==3'b100) nextstate <=s1;
+		else if(gonext>=3'b010) nextstate<=s2;
+		else if(gonext==3'b000) nextstate<=s0;
+		else nextstate<=s1; 
+		end
+s2 : begin
+		if(gonext<=3'b001) nextstate<=s1;
+		else if(gonext==3'b011) nextstate<=s3;
+		else nextstate<=s2;
+		end
+s3 : begin
+		if(gonext<=3'b010) nextstate<=s2;
+		else nextstate<=s3;
+		end
+endcase
+end
+
+//store
+always @(posedge clk_l, posedge rst)
+begin
+if(rst) state <= s0;
+else state <= nextstate;
+end
+
+//count
+always @(*)
+begin
+count <= state;
+end
+
+//zyboclock dividing
+always @(posedge clk, posedge rst)
+begin
+	if(rst) count_c <= 0;
+	else
+	begin
+      if(count_c == 62_500_000)
+		begin
+		clk_l <= ~clk_l;
+		count_c <= 0;
+		end
+	else count_c <= count_c+1;
+	end
+end
+
+//seven segment display
+always @(*)
+begin
+case(count)
+2'b00 : segdisp = 7'b0111111;
+2'b01 : segdisp = 7'b0000110;
+2'b10 : segdisp = 7'b1011011;
+2'b11 : segdisp = 7'b1001111;
+default : segdisp = 7'b0000000;
+endcase
+end
+
+endmodule
+
